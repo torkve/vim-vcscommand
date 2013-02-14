@@ -1129,7 +1129,7 @@ endfunction
 " Rules for determining type:
 "   1. use previously-cached value
 "   2. use value from 'VCSCommandVCSTypeOverride'
-"   3. use single match 
+"   3. use single match
 "   4. use first matching value from 'VCSCommandTypePreference'
 "   5. use single exact match
 "   6. error if multiple matching types
@@ -1246,8 +1246,10 @@ function! VCSCommandDoCommand(cmd, cmdName, statusText, options)
 
 	if match(a:cmd, '<VCSCOMMANDFILE>') > 0
 		let fullCmd = substitute(a:cmd, '<VCSCOMMANDFILE>', fileName, 'g')
-	else
+	elseif !has_key(a:options, 'noFileNameRequired')
 		let fullCmd = a:cmd . ' -- ' . shellescape(fileName)
+	else
+		let fullCmd = a:cmd
 	endif
 
 	" Change to the directory of the current buffer.  This is done for CVS, but

@@ -146,12 +146,17 @@ endfunction
 
 " Function: s:svnFunctions.Diff(argList) {{{2
 function! s:svnFunctions.Diff(argList)
+	let options = {}
 	if len(a:argList) == 0
 		let revOptions = []
 		let caption = ''
 	elseif len(a:argList) <= 2 && match(a:argList, '^-') == -1
 		let revOptions = ['-r' . join(a:argList, ':')]
 		let caption = '(' . a:argList[0] . ' : ' . get(a:argList, 1, 'current') . ')'
+	elseif len(a:argList) >= 1 && match(a:argList, '^-c\d\+') != -1
+		let caption = join(a:argList, ' ')
+		let revOptions = a:argList
+		let options.noFileNameRequired = 1
 	else
 		" Pass-through
 		let caption = join(a:argList, ' ')
@@ -172,7 +177,7 @@ function! s:svnFunctions.Diff(argList)
 		let diffOptions = ['-x -' . svnDiffOpt]
 	endif
 
-	return s:DoCommand(join(['diff --non-interactive'] + diffExt + diffOptions + revOptions), 'diff', caption, {})
+	return s:DoCommand(join(['diff --non-interactive'] + diffExt + diffOptions + revOptions), 'diff', caption, options)
 endfunction
 
 " Function: s:svnFunctions.GetBufferInfo() {{{2
