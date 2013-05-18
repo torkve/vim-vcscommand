@@ -147,20 +147,25 @@ endfunction
 " Function: s:svnFunctions.Diff(argList) {{{2
 function! s:svnFunctions.Diff(argList)
 	let options = {}
-	if len(a:argList) == 0
+	let l:argList = deepcopy(a:argList)
+	if match(l:argList, "^returnAsString$") != -1
+		let options.returnAsString = 1
+		call filter(l:argList, 'v:val != "returnAsString"')
+	endif
+	if len(l:argList) == 0
 		let revOptions = []
 		let caption = ''
-	elseif len(a:argList) <= 2 && match(a:argList, '^-') == -1
-		let revOptions = ['-r' . join(a:argList, ':')]
-		let caption = '(' . a:argList[0] . ' : ' . get(a:argList, 1, 'current') . ')'
-	elseif len(a:argList) >= 1 && match(a:argList, '^-c\d\+') != -1
-		let caption = join(a:argList, ' ')
-		let revOptions = a:argList
+	elseif len(l:argList) <= 2 && match(l:argList, '^-') == -1
+		let revOptions = ['-r' . join(l:argList, ':')]
+		let caption = '(' . l:argList[0] . ' : ' . get(l:argList, 1, 'current') . ')'
+	elseif len(l:argList) >= 1 && match(l:argList, '^-c\d\+') != -1
+		let caption = join(l:argList, ' ')
+		let revOptions = l:argList
 		let options.noFileNameRequired = 1
 	else
 		" Pass-through
-		let caption = join(a:argList, ' ')
-		let revOptions = a:argList
+		let caption = join(l:argList, ' ')
+		let revOptions = l:argList
 	endif
 
 	let svnDiffExt = VCSCommandGetOption('VCSCommandSVNDiffExt', '')

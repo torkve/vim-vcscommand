@@ -987,6 +987,74 @@ function! s:VCSReview(...)  "{{{2
 	endtry
 endfunction
 
+function! s:VCSShowChanged() "{{{2
+	call s:VCSCommandUtility.pushContext({'VCSShowChanged': bufnr('%')})
+	try
+		let originalBuffer = VCSCommandGetOriginalBuffer(bufnr('%'))
+
+		let numlines = line('$')
+		let curline = 1
+		" Unplace old signs
+		while curline <= numlines
+			exec "sign unplace " . curline . " buffer=" . originalBuffer
+			let curline = curline + 1
+		endwhile
+
+		sign define vcsdiff_added text=+ texthl=DiffAdd
+		sign define vcsdiff_removed text=- texthl=DiffDelete
+		sign define vcsdiff_changed text=M texthl=DiffChanged
+
+		let options = deepcopy(a:000)
+		call add(options, 'returnAsString')
+		let diff = s:ExecuteVCSCommand('Diff', options)
+		let lines = split(diff, '\n', 1)
+
+		let curline = 0
+		let modifiedDepth = 0
+		let removePlaced = 0
+		for line in lines
+			if match(line, "^--- ") != -1 || match(line, "^+++ ") != -1
+				continue
+			endif
+
+			let shift = matchlist(line, "^@@ -[0-9]\\+,[0-9]\\+ +\\([0-9]\\+\\),\\([0-9]\\+\\)")
+			if len(shift) > 0
+				let curline = shift[1]
+				continue
+			endif
+
+			if curline == 0
+				continue
+			endif
+			if match(line, "^ ") != -1
+				let curline = curline + 1
+				let modifiedDepth = 0
+			elseif match(line, "^+") != -1
+				if modifiedDepth > 0
+					exec "sign place " . curline . " line=" . curline . " name=vcsdiff_changed buffer=" . originalBuffer
+					if removePlaced > 0
+						exec "sign unplace " . (curline - 1) . " buffer=" . originalBuffer
+						let removePlaced = 0
+					endif
+					let modifiedDepth = modifiedDepth - 1
+				else
+					exec "sign place " . curline . " line=" . curline . " name=vcsdiff_added buffer=" . originalBuffer
+				endif
+				let curline = curline + 1
+			elseif match(line, "^-") != -1
+				if modifiedDepth == 0
+					exec "sign place " . (curline - 1) . " line=" . (curline - 1) . " name=vcsdiff_removed buffer=" . originalBuffer
+					let removePlaced = 1
+				endif
+				let modifiedDepth = modifiedDepth + 1
+			endif
+		endfor
+	finally
+		call s:VCSCommandUtility.popContext()
+	endtry
+
+endfunction
+
 " Function: s:VCSVimDiff(...) {{{2
 function! s:VCSVimDiff(...)
 	try
@@ -1208,7 +1276,12 @@ endfunction
 " 	allowNonZeroExit:  if non-zero, if the underlying VCS command has a
 "		non-zero exit status, the command is still considered
 "		successfuly.  This defaults to zero.
+" 	noFileNameRequired:  if non-zero, filename wouldn'be appended to the
+"		command executed. This defaults to zero.
+" 	returnAsString:  if non-zero, output wouldn't be injected to the
+"		new buffer, but will be returned instead.
 " Returns: name of the new command buffer containing the command results
+"		or the string with the command results if returnAsString is set.
 
 function! VCSCommandDoCommand(cmd, cmdName, statusText, options)
 	let allowNonZeroExit = 0
@@ -1270,6 +1343,10 @@ function! VCSCommandDoCommand(cmd, cmdName, statusText, options)
 
 		checktime
 		return 0
+	endif
+
+	if has_key(a:options, 'returnAsString')
+		return output
 	endif
 
 	call s:EditFile(a:cmdName, originalBuffer, a:statusText)
@@ -1391,6 +1468,7 @@ com! -nargs=* VCSStatus call s:ExecuteVCSCommand('Status', [<f-args>])
 com! -nargs=* VCSUnlock call s:MarkOrigBufferForSetup(s:ExecuteVCSCommand('Unlock', [<f-args>]))
 com! -nargs=0 VCSUpdate call s:MarkOrigBufferForSetup(s:ExecuteVCSCommand('Update', []))
 com! -nargs=* VCSVimDiff call s:VCSVimDiff(<f-args>)
+com! -nargs=0 VCSShowChanged call s:VCSShowChanged()
 
 " Section: VCS buffer management commands {{{2
 com! VCSCommandDisableBufferSetup call VCSCommandDisableBufferSetup()
@@ -1418,6 +1496,7 @@ if !exists("no_plugin_maps")
 	nnoremap <silent> <Plug>VCSUnlock :VCSUnlock<CR>
 	nnoremap <silent> <Plug>VCSUpdate :VCSUpdate<CR>
 	nnoremap <silent> <Plug>VCSVimDiff :VCSVimDiff<CR>
+    nnoremap <silent> <Plug>VCSShowChanged :VCSShowChanged<CR>
 endif
 
 " Section: Default mappings {{{1

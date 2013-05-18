@@ -148,12 +148,19 @@ endfunction
 " Pass-through call to git-diff.  If no options (starting with '-') are found,
 " then the options in the 'VCSCommandGitDiffOpt' variable are added.
 function! s:gitFunctions.Diff(argList)
+	let options = {}
+	let l:argList = deepcopy(a:argList)
+	if match(l:argList, "^returnAsString$") != -1
+		let options.returnAsString = 1
+		call filter(l:argList, 'v:val != "returnAsString"')
+	endif
+
 	let gitDiffOpt = VCSCommandGetOption('VCSCommandGitDiffOpt', '')
 	if gitDiffOpt == ''
 		let diffOptions = []
 	else
 		let diffOptions = [gitDiffOpt]
-		for arg in a:argList
+		for arg in l:argList
 			if arg =~ '^-'
 				let diffOptions = []
 				break
@@ -161,7 +168,7 @@ function! s:gitFunctions.Diff(argList)
 		endfor
 	endif
 
-	return s:DoCommand(join(['diff'] + diffOptions + a:argList), 'diff', join(a:argList), {})
+	return s:DoCommand(join(['diff'] + diffOptions + l:argList), 'diff', join(l:argList), options)
 endfunction
 
 " Function: s:gitFunctions.GetBufferInfo() {{{2
